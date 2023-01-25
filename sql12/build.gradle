@@ -1,0 +1,270 @@
+plugins {
+    id 'base'
+}
+
+group = 'squirrel-sql'
+
+def currDate = new Date()
+def DSTAMP = currDate.format('yyyyMMdd')
+def TSTAMP = currDate.format('HHmm')
+
+//DEFINE VERSION HERE ONLY
+//version = '4.6.0'  //release version
+version = "snapshot-${DSTAMP}_${TSTAMP}"
+
+defaultTasks 'buildAll'
+
+ext {
+    targetVM = 11
+    versionCheckerTargetVM = 8
+
+    coreLibDir = "$projectDir/core/lib"
+    outputDistDir = 'output/dist'
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+subprojects {
+    apply plugin: 'java'
+
+    compileJava {
+        options.encoding = 'UTF-8'
+        options.release = targetVM
+    }
+
+    dependencies {
+        if (!['core', 'versionChecker'].contains(project.name)) {
+            implementation project(':core')
+            //extra libraries for each plugin (where applicable)
+            implementation fileTree(dir: 'lib', include: '*.jar')
+        }
+        if ('versionChecker' != project.name) {
+            implementation fileTree(dir: coreLibDir, include: '*.jar')
+        }
+        if ('laf' == project.name) {
+            //extra libraries for the plugin 'laf'
+            implementation fileTree(dir: 'lafs', include: '*.jar')
+        }
+    }
+
+    sourceSets {
+        main {
+            java {
+                srcDirs = ['src']
+            }
+            resources {
+                //initialize the srcDirs property to remove the default src/main/resources,
+                //and add other resources from src (excluding *.java by default)
+                srcDirs = ['src']
+            }
+        }
+    }
+}
+
+//somehow the 'base' plugin's assemble task doesn't invoke all subprojects' assemble tasks as expected,
+//(it only does at the command-line 'gradlew assemble' command, but not within this build script)
+//so explicitly force this assemble task to depend on all subprojects' equivalent ones,
+//because many other tasks depend on this behaviour of the assemble task
+subprojects.forEach { assemble.dependsOn it.assemble }
+
+configurations {
+    izpack
+}
+
+dependencies {
+    izpack 'org.codehaus.izpack:izpack-ant:5.1.3'
+}
+
+clean {
+    //additional folder to delete
+    delete outputDistDir
+}
+
+//custom tasks for creating zip distributions
+def createZipDistribution(distType) {
+    def distTypes = ['base', 'standard', 'optional']
+    if (!distTypes.contains(distType)) {
+        throw new GradleException("Wrong distribution type: ${distType}. Valid distribution types are: $distTypes")
+    }
+
+    return tasks.create("zip${distType}Task", Zip) {
+        dependsOn assemble
+        destinationDirectory = file("$buildDir/plainZip")
+
+        def internalFolder = 'squirrelsql-' + project.version + '-' + distType
+        archiveFileName = internalFolder + '.zip'
+
+        into internalFolder
+
+        def pluginList
+		if (distType == 'base') {
+            pluginList = []
+        }
+        else if (distType == 'standard') {
+            pluginList = [
+                'codecompletion',
+                'dataimport',
+                'dbcopy',
+                'graph',
+                'laf',
+                'refactoring',
+                'sqlbookmark',
+                'sqlscript',
+                'syntax',
+            ]
+        }
+        else if (distType == 'optional') {
+            pluginList = gradle.allPlugins
+        }
+
+        from ('plainZipScripts') {
+            include '**/*'
+        }
+
+        //copy files from the 'launcher' folder, but don't overwrite
+        //the same files from the above 'plainZipScripts' folder
+		//(to prevent duplicate entries in the resulting zip file!)
+        from ('launcher') {
+            include '**/*'
+            duplicatesStrategy 'exclude'
+        }
+
+        from (project(':core').jar)
+
+        from (project(':core').projectDir) {
+            include 'lib/**', 'doc/**'
+        }
+
+        from (project(':versionChecker').jar) {
+            into 'lib'
+        }
+
+        pluginList.each { dirName ->
+            from (project(":$dirName").jar) {
+                into 'plugins'
+            }
+            from (project(":$dirName").projectDir) {
+                exclude 'src', 'build', 'build.gradle', 'bin', '.settings', '.classpath', '.project'
+                into "plugins/$dirName"
+            }
+            //dirty trick to include plugin folder even when it's empty
+            //(like the 'wikiTableConfigurations' plugin folder after all the above excludes)
+            //as empty folder is not included in the resulting zip file by Gradle by default
+            from({ file("$buildDir/tmp/plugins/$dirName/$dirName").mkdirs(); "$buildDir/tmp/plugins/$dirName" }) {
+                into 'plugins'
+            }
+        }
+
+        includeEmptyDirs = true
+    }
+}
+
+task copyMacOsxPlugin(type: Copy) {
+    into "$outputDistDir"
+
+    from (project(':macosx').jar) {
+        into 'plugins'
+    }
+    from (project(':macosx').projectDir) {
+        exclude 'src', 'build', 'build.gradle'
+        into 'plugins/macosx'
+    }
+    //force creation of empty plugin dir if need be
+	doLast {
+        file("$outputDistDir/plugins/macosx").mkdirs()
+    }
+}
+
+task copyToOutputDistDir {
+    dependsOn assemble
+
+    //use Ant's copy task which supports incremental copying (as Gradle's copy task doesn't)
+    doLast {
+        ant.copy(todir: "$outputDistDir") {
+            fileset(dir: 'launcher', includes: '**/*')
+            fileset(dir: project(':core').jar.destinationDirectory.get())
+            fileset(dir: project(':core').projectDir, includes: 'lib/**, doc/**')
+        }
+
+        ant.copy(todir: "$outputDistDir/lib") {
+            fileset(dir: project(':versionChecker').jar.destinationDirectory.get())
+        }
+
+        gradle.allPlugins.each { dirName ->
+            ant.copy(todir: "$outputDistDir/plugins") {
+                fileset(dir: project(":$dirName").jar.destinationDirectory.get())
+            }
+            ant.copy(todir: "$outputDistDir/plugins/$dirName") {
+                fileset(dir: project(":$dirName").projectDir,
+                        excludes: '.classpath, .project, .settings/, bin/, build/, build.gradle, src/**/*')
+            }
+			delete "$outputDistDir/plugins/$dirName/src"
+        }
+    }
+}
+
+//task for creating IzPack installer jars
+//which depend on the 'output/dist' folder to be populated (if not already)
+task createIzPackInstallerJars {
+    dependsOn copyToOutputDistDir, copyMacOsxPlugin
+    def destDir = "$buildDir/izPackInstallJars"
+
+    doLast {
+        mkdir destDir
+        ant.taskdef(name: 'izpack',
+                    classpath: configurations.izpack.asPath,
+                    classname: 'com.izforge.izpack.ant.IzPackTask')
+        ant.property(name: 'squirrelsql.version', value: project.version)
+
+        ant.izpack(basedir: projectDir.path,
+                   input: file('installer/other/izpack-other.xml').path,
+                   output: "$destDir/squirrel-sql-${project.version}-standard.jar",
+                   installerType: 'standard',
+                   //compression: 'deflate',
+                   //compressionlevel: '9',
+                   inheritAll: 'true')
+
+        ant.izpack(basedir: projectDir.path,
+                   input: file('installer/mac/izpack-mac.xml').path,
+                   output: "$destDir/squirrel-sql-${project.version}-MACOS-install.jar",
+                   installerType: 'standard',
+                   //compression: 'deflate',
+                   //compressionlevel: '9',
+                   inheritAll: 'true')
+    }
+}
+
+task runApp(type: JavaExec) {
+    description = 'Run the SquirrelSQL app with all plugins available'
+    dependsOn copyToOutputDistDir
+
+    //run the executable squirrel-sql.jar in 'output/dist' directory
+    classpath = files("$outputDistDir/squirrel-sql.jar")
+    workingDir = file("$outputDistDir")
+
+    jvmArgs = [
+        '-splash:icons/splash.jpg',
+    ]
+
+    debugOptions {
+        enabled = true
+        port = 5566
+        server = true
+        suspend = false
+    }
+}
+
+task buildExInstaller {
+    dependsOn createZipDistribution('base'),
+              createZipDistribution('standard'),
+              createZipDistribution('optional')
+}
+
+task buildAll {
+    dependsOn buildExInstaller,
+              createIzPackInstallerJars
+}
+

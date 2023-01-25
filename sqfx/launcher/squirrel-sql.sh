@@ -53,7 +53,7 @@ cd "$UNIX_STYLE_HOME"
 # should be able to be run by that version or higher. The arguments to JavaVersionChecker below specify the 
 # minimum acceptable version (first arg) and any other acceptable subsequent versions.  <MAJOR>.<MINOR> should 
 # be all that is necessary for the version form. 
-$JAVACMD -cp "$UNIX_STYLE_HOME/lib/versioncheck.jar" JavaVersionChecker 9
+$JAVACMD -cp "$UNIX_STYLE_HOME/versioncheck/versioncheck.jar" JavaVersionChecker 11 12 13 14 15 16 17 18 19 20
 if [ "$?" = "1" ]; then
   exit
 fi
@@ -79,4 +79,4 @@ fi
 SCRIPT_ARGS="$1 $2 $3 $4 $5 $6 $7 $8 $9"
 
 # Launch SQuirreL application
-$JAVACMD -cp "$TMP_CP" $SQUIRREL_SQL_OPTS org.squirrelsql.Main  "$UNIX_STYLE_HOME" $SCRIPT_ARGS
+$JAVACMD -cp "$TMP_CP" $SQUIRREL_SQL_OPTS org.squirrelsql.Launcher  "$UNIX_STYLE_HOME" $SCRIPT_ARGS

@@ -1,8 +1,0 @@
-output
-*.iml
-.idea
-/bin/
-.classpath
-.project
-.settings
-run.sh

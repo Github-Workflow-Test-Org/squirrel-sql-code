@@ -29,7 +29,7 @@ set SQUIRREL_SQL_HOME=%basedir%
 @rem that version of higher.  The arguments to JavaVersionChecker below specify the minimum acceptable version 
 @rem (first arg) and any other acceptable subsequent versions.  <MAJOR>.<MINOR> should be all that is 
 @rem necessary for the version form. 
-"%LOCAL_JAVA%" -cp "%SQUIRREL_SQL_HOME%\lib\versioncheck.jar" JavaVersionChecker 9
+"%LOCAL_JAVA%" -cp "%SQUIRREL_SQL_HOME%\versioncheck\versioncheck.jar" JavaVersionChecker 11 12 13 14 15 16 17 18 19 20
 if ErrorLevel 1 goto ExitForWrongJavaVersion
 
 :launchsquirrel
@@ -46,6 +46,6 @@ SET TMP_PARMS=%1 %2 %3 %4 %5 %6 %7 %8 %9
 
 @rem Run with no command window. This may not work with versions of Windows prior to XP. 
 @rem Remove 'start "SQuirreL SQL Client" /B' for compatibility only if necessary 
-start "SQuirreL SQL Client" /B "%LOCAL_JAVA%" -cp %SQUIRREL_CP% %SQUIRREL_SQL_OPTS% org.squirrelsql.Main %TMP_PARMS%
+start "SQuirreL SQL Client" /B "%LOCAL_JAVA%" -cp %SQUIRREL_CP% %SQUIRREL_SQL_OPTS% org.squirrelsql.Launcher %TMP_PARMS%
 
 :ExitForWrongJavaVersion
