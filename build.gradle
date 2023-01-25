@@ -1,0 +1,22 @@
+//composite build script for the 2 independent projects: sqfx, sql12
+
+defaultTasks 'buildAll'
+
+tasks.wrapper {
+    gradleVersion = '8.6'
+    distributionType = Wrapper.DistributionType.ALL
+}
+
+task buildAll {
+    group = 'build'
+    description = 'Build all included builds'
+    dependsOn gradle.includedBuild('sqfx').task(':buildAll')
+    dependsOn gradle.includedBuild('sql12').task(':buildAll')
+}
+
+task clean {
+    group = 'build'
+    description = 'Delete the build directories of all included builds'
+    dependsOn gradle.includedBuild('sqfx').task(':clean')
+    dependsOn gradle.includedBuild('sql12').task(':clean')
+}

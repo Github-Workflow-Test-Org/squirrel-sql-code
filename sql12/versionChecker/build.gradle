@@ -1,0 +1,9 @@
+//additional configurations for the subproject
+
+compileJava {
+    options.release = rootProject.versionCheckerTargetVM
+}
+
+jar {
+    archiveBaseName = 'versioncheck'
+}

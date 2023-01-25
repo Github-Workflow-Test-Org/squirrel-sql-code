@@ -1,24 +1,70 @@
-#SQuirreL SQL Client
+# SQuirreL SQL Client
 
-## Build instructions
-SQuirreL SQL uses an Ant based built system, see http://ant.apache.org/. To build SQuirreL you need to download Ant version 1.9.3 or higher from here: http://ant.apache.org/bindownload.cgi
+[SQuirreL SQL Client](http://www.squirrelsql.org/) is a graphical Java program
+that will allow you to view the structure of a JDBC-compliant database, browse
+the data in tables, issue SQL commands, etc.
 
-Then open a cmd/shell window and change directory to `<squirrel-git-root>/sql12/`. Form there execute `<ant-home>/bin/ant`. This will generate the directory `<squirrel-git-root>/sql12/output/` where all the build artefacts (installer jars, plainzip packages) are placed.
+Original Ant build instructions are described in the
+[upstream](https://github.com/squirrel-sql-client/squirrel-sql-code)
+repository.
 
-The build script itself is located at `<squirrel-git-root>/sql12/build.xml` and contains a few more than 200 lines of code.
+---
 
-With the restructuring of the build system went a new directory structure:
+This fork is to add [Gradle](https://gradle.org/) build scripts to the projects,
+to take advantage of the incremental build feature of Gradle to produce fast builds
+during development cycles.
 
-  * `<squirrel-git-root>/sql12/core/`: Contains the code of SQuirreL's base application..
-  * `<squirrel-git-root>/sql12/plugins/`: Contains all Plugins.
-  * `<squirrel-git-root>/sql12/launcher/`: Contains the basis of SQuirreL's start scripts in a way they are needed for building the installer packages.
-  *  `<squirrel-git-root>/sql12/plainZipScript/`: Scripts for plain zip distributions. If copied to the launcher directory these scripts are able to start SQuirreL without installation.
+## Gradle build instructions
 
-## Hints for developers
+There are two projects in the repository, in their own sub-directories:
 
-  * Use `<squirrel-git-root>/sql12/output/dist/` as SQuirreL's home directory (command line: `-home <squirrel-git-root>/sql12/output/dist/`).
-  * Put the files in `<squirrel-git-root>/sql12/core/lib` in your classpath
-  * In case you want to work with the Look & Feel Plugin put the files contained in `<squirrel-git-root>/sql12/pluins/laf/` and `<squirrel-git-root>/sql12/pluins/skinlf-theme-packs/` in your classpath
-  * SQuirreL's source code is in `<squirrel-git-root>/sql12/core/src/` and `<squirrel-git-root>/sql12/plugins/<plugin>/src/`
+* [sql12](sql12) is the project of the current SquirrelSQL application. It is based on the Swing framework for the user interface, and has been in use for a long time.
+* [sqfx](sqfx) is the next-gen SquirrelSQLFX application which is based on JavaFX for the user interface. This project currently doesn't have as much functionalities as the other one.
 
+The above two projects are independent. The Gradle build scripts for each project
+(in their sub-directories) are therefore isolated and are independent builds.
+
+In the main (parent) directory, there's the
+[composite build](https://docs.gradle.org/current/userguide/composite_builds.html)
+script which composes the two projects as included builds. In this main directory,
+execute the `buildAll` task to build the two included projects:
+
+	gradlew buildAll
+
+The above composite `buildAll` task is equivalent to running the same task for
+each independent project:
+
+	gradlew :sql12:buildAll
+	gradlew :sqfx:buildAll
+
+Plain zip files are then produced in each project's `build` directory:
+
+	sql12/build/plainZip/
+	sqfx/build/plainZip/
+
+For the `sql12` project, IzPack installer jars are also produced in its `build`
+directory:
+
+	sql12/build/izPackInstallJars/
+
+Installation info for the above build artifacts are described
+[here](http://www.squirrelsql.org/#installation).
+
+Each project's application can be independently executed/run by its `runApp` task
+using Gradle:
+
+	gradlew :sql12:runApp
+
+or:
+
+	gradlew :sqfx:runApp
+
+
+## Ant build instructions
+
+Ant build instructions for the `sql12` project are in the upstream's
+[README.md](https://github.com/squirrel-sql-client/squirrel-sql-code).
+
+Ant build info for the `sqfx` project is described briefly
+[here](http://www.squirrelsql.org/index.php?page=squirrelFx).
 
