@@ -5,7 +5,7 @@ that will allow you to view the structure of a JDBC-compliant database, browse
 the data in tables, issue SQL commands, etc.
 
 Original Ant build instructions are described in the
-[upstream](https://github.com/squirrel-sql-client/squirrel-sql-code)
+[upstream](https://github.com/squirrel-sql-client/squirrel-sql-code)s
 repository.
 
 ---
